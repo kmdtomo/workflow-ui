@@ -68,10 +68,13 @@ export async function POST(req: NextRequest) {
         const decoder = new TextDecoder();
 
         const stepIdToPhase: Record<string, string> = {
+          'parallel-phase123-step': 'parallel-phase123-step',
+          'phase4-report-generation': 'phase4-report-generation',
+          // 下位互換性のため残す
           'phase1-purchase-collateral': 'phase1',
           'phase2-bank-statement': 'phase2',
           'phase3-verification': 'phase3',
-          'phase4-report-generation': 'phase4',
+          'phase4': 'phase4',
         };
 
         let buffer = '';
