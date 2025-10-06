@@ -18,6 +18,9 @@ export default function WorkflowUI() {
   const [error, setError] = useState<string | null>(null);
 
   const phaseDefinitions = {
+    'parallel-phase123-step': 'Phase 1-3: 並列分析中（買取・担保 / 通帳 / 本人確認）',
+    'phase4-report-generation': 'Phase 4: 最終分析・レポート生成',
+    // 下位互換性のため残す
     phase1: 'Phase 1: 買取・担保情報処理',
     phase2: 'Phase 2: 通帳分析',
     phase3: 'Phase 3: 本人確認・企業実在性確認',
