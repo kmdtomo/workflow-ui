@@ -119,8 +119,12 @@ export default function WorkflowUI() {
               // 最終結果
               if (data.type === 'complete' && data.result) {
                 console.log('🎉 ワークフロー完了:', data.result);
+                console.log('🔍 データ構造キー:', Object.keys(data.result));
+                console.log('🔍 riskSummaryHtml 存在:', !!data.result.riskSummaryHtml);
+                console.log('🔍 riskSummaryHtml 長さ:', data.result.riskSummaryHtml?.length);
+                console.log('🔍 detailedAnalysisHtml 存在:', !!data.result.detailedAnalysisHtml);
+                console.log('🔍 detailedAnalysisHtml 長さ:', data.result.detailedAnalysisHtml?.length);
                 console.log('🔍 phase4Results:', data.result.phase4Results);
-                console.log('🔍 データ構造:', Object.keys(data.result));
                 setFinalResult(data.result);
               }
 
@@ -285,6 +289,17 @@ export default function WorkflowUI() {
         {finalResult && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-6 text-center">🎉 審査結果</h2>
+
+            {/* デバッグ情報（HTMLフィールドが存在しない場合のみ表示） */}
+            {!finalResult.riskSummaryHtml && !finalResult.detailedAnalysisHtml && (
+              <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500">
+                <h3 className="font-bold text-yellow-700 mb-2">⚠️ デバッグ情報</h3>
+                <div className="text-sm text-yellow-600">
+                  <p>HTMLレポートフィールドが見つかりません。</p>
+                  <p className="mt-2">利用可能なフィールド: {Object.keys(finalResult).join(', ')}</p>
+                </div>
+              </div>
+            )}
 
             {/* Phase 4: リスク評価＋総評（新フォーマット） */}
             {finalResult.riskSummaryHtml && (
