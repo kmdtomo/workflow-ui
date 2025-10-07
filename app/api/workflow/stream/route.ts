@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         };
 
         let buffer = '';
+        let finalWorkflowResult: any = null; // Phase 4の結果を保存
 
         while (true) {
           const { done, value } = await reader.read();
@@ -104,6 +105,17 @@ export async function POST(req: NextRequest) {
                 try {
                   const event = JSON.parse(jsonStr);
                   console.log('受信イベント:', event.type, event);
+                  
+                  // step-resultの詳細デバッグ
+                  if (event.type === 'step-result') {
+                    console.log('🔍 [DEBUG] step-result 詳細:');
+                    console.log('  - payload.id:', event.payload?.id);
+                    console.log('  - payload.status:', event.payload?.status);
+                    console.log('  - payload.output exists:', !!event.payload?.output);
+                    if (event.payload?.output) {
+                      console.log('  - output keys:', Object.keys(event.payload.output));
+                    }
+                  }
 
                   // Mastraイベントを変換してUIに送信
                   let uiEvent = null;
@@ -134,13 +146,23 @@ export async function POST(req: NextRequest) {
                       const phaseIdResult = stepIdToPhase[event.payload?.id] || 'unknown';
 
                       // ステップが成功した場合
-                      if (event.payload?.status === 'success' && event.payload?.result) {
+                      if (event.payload?.status === 'success' && event.payload?.output) {
+                        // Phase 4 の結果を保存
+                        if (event.payload?.id === 'phase4-report-generation') {
+                          finalWorkflowResult = event.payload?.output;
+                          console.log('💾 Phase 4 結果を保存:', {
+                            hasRiskSummaryHtml: !!finalWorkflowResult?.riskSummaryHtml,
+                            hasDetailedAnalysisHtml: !!finalWorkflowResult?.detailedAnalysisHtml,
+                            keys: Object.keys(finalWorkflowResult || {})
+                          });
+                        }
+                        
                         uiEvent = {
                           type: 'step_detail',
                           stepId: event.payload?.id,
                           phase: phaseIdResult,
                           status: 'success',
-                          output: event.payload?.result,
+                          output: event.payload?.output,
                           startedAt: event.payload?.startedAt,
                           endedAt: event.payload?.endedAt
                         };
@@ -170,24 +192,23 @@ export async function POST(req: NextRequest) {
                       break;
 
                     case 'finish':
-                      // 最終結果を取得
-                      const executionResult = await fetch(
-                        `${apiBaseUrl}/api/workflows/integratedWorkflow/runs/${event.payload?.runId}/execution-result`,
-                        {
-                          method: 'GET',
-                          headers: { 'Content-Type': 'application/json' }
-                        }
-                      );
-
-                      if (executionResult.ok) {
-                        const result = await executionResult.json();
+                      // 保存したPhase 4の結果を使用
+                      if (finalWorkflowResult) {
+                        console.log('✅ 保存されたPhase 4結果を使用');
+                        console.log('🔍 finalWorkflowResult keys:', Object.keys(finalWorkflowResult));
+                        console.log('🔍 riskSummaryHtml 存在:', !!finalWorkflowResult?.riskSummaryHtml);
+                        console.log('🔍 riskSummaryHtml 長さ:', finalWorkflowResult?.riskSummaryHtml?.length);
+                        console.log('🔍 detailedAnalysisHtml 存在:', !!finalWorkflowResult?.detailedAnalysisHtml);
+                        console.log('🔍 detailedAnalysisHtml 長さ:', finalWorkflowResult?.detailedAnalysisHtml?.length);
+                        
                         uiEvent = {
                           type: 'complete',
-                          result: result.result,
+                          result: finalWorkflowResult,
                           status: 'completed'
                         };
-                        console.log('ワークフロー完了:', result);
+                        console.log('ワークフロー完了 - UI送信データ:', uiEvent.type);
                       } else {
+                        console.warn('⚠️ Phase 4の結果が保存されていません');
                         uiEvent = {
                           type: 'complete',
                           result: null,
@@ -209,9 +230,6 @@ export async function POST(req: NextRequest) {
                     console.log('→ UI送信:', uiEvent.type, uiEvent);
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify(uiEvent)}\n\n`));
                   }
-
-                  // ★将来のKintone連携ポイント★
-                  // await handleKintoneUpdate(recordId, event);
 
                 } catch (e) {
                   console.log('イベント解析エラー:', e, 'JSONデータ:', jsonStr);
@@ -243,27 +261,3 @@ export async function POST(req: NextRequest) {
     },
   });
 }
-
-// ★将来追加するKintone連携関数（今は実装しない）
-/*
-async function handleKintoneUpdate(recordId: string, event: any) {
-  // workflow-finish イベントで最終結果をKintoneに書き込み
-  if (event.type === 'workflow-finish') {
-    const result = event.payload?.workflowState?.result;
-
-    await kintone.record.updateRecord({
-      app: KINTONE_APP_ID,
-      id: recordId,
-      record: {
-        '最終判定': { value: result?.最終判定 || '' },
-        '総評': { value: result?.phase4Results?.総評 || '' },
-        'Phase1結果': { value: JSON.stringify(result?.phase1Results) },
-        'Phase2結果': { value: JSON.stringify(result?.phase2Results) },
-        'Phase3結果': { value: JSON.stringify(result?.phase3Results) },
-        'Phase4結果': { value: JSON.stringify(result?.phase4Results) },
-        // ... その他のフィールド
-      }
-    });
-  }
-}
-*/
